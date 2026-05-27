@@ -203,7 +203,7 @@ resolveLHNames cfg thisModule localVars impMods globalRdrEnv bareSpec0 dependenc
       -- Second resolution pass: a traversal to resolve logic names using the following
       -- lookup environments.
       let (inScopeEnv, logicNameEnv0, privateReflectNames) =
-            makeLogicEnvs impMods thisModule sp2 dependencies
+            makeLogicEnvs (typeclass cfg) impMods thisModule sp2 dependencies
 
           -- Add resolved local defines to the logic map.
           lmap1 = lmap <> mkLogicMap (HM.fromList $
@@ -688,7 +688,8 @@ lookupInScopeEnv env s = do
 -- Also returns the names of reflected private functions.
 -- Also returns the set of all names that aren't handled yet by name resolution.
 makeLogicEnvs
-  :: GHC.ImportedMods
+  :: Bool
+  -> GHC.ImportedMods
   -> GHC.Module
   -> BareSpecParsed
   -> TargetDependencies
@@ -696,7 +697,7 @@ makeLogicEnvs
      , LogicNameEnv
      , HS.HashSet LocSymbol
      )
-makeLogicEnvs impMods thisModule spec dependencies =
+makeLogicEnvs allowTC impMods thisModule spec dependencies =
     let depsLogicNames =
           map (fmap collectLiftedSpecLogicNames) dependencyPairs
         logicNames =
@@ -713,6 +714,7 @@ makeLogicEnvs impMods thisModule spec dependencies =
               , HS.toList (opaqueReflects spec)
               , HS.toList (inlines spec)
               , HS.toList (hmeas spec)
+              , if allowTC then map fst (sigs spec) else []
               ]
             ]
           , [ val (msName m) | m <- measures spec ]
