@@ -165,10 +165,11 @@ resolveLHNames
   -> LocalVars
   -> GHC.ImportedMods
   -> GHC.GlobalRdrEnv
+  -> GHC.TypeEnv
   -> BareSpecParsed
   -> TargetDependencies
   -> Either [Error] (BareSpec, LogicNameEnv, LogicMap)
-resolveLHNames cfg thisModule localVars impMods globalRdrEnv bareSpec0 dependencies =
+resolveLHNames cfg thisModule localVars impMods globalRdrEnv tyEnv bareSpec0 dependencies =
   flip evalState RenameOutput { roErrors = [], roUsedNames = [], roUsedDataCons = mempty } $
     runExceptT $ do
       -- Prepare type aliases for resolution.
@@ -203,7 +204,7 @@ resolveLHNames cfg thisModule localVars impMods globalRdrEnv bareSpec0 dependenc
       -- Second resolution pass: a traversal to resolve logic names using the following
       -- lookup environments.
       let (inScopeEnv, logicNameEnv0, privateReflectNames) =
-            makeLogicEnvs (typeclass cfg) impMods thisModule sp2 dependencies
+            makeLogicEnvs (typeclass cfg) impMods thisModule sp2 tyEnv dependencies
 
           -- Add resolved local defines to the logic map.
           lmap1 = lmap <> mkLogicMap (HM.fromList $
@@ -692,12 +693,13 @@ makeLogicEnvs
   -> GHC.ImportedMods
   -> GHC.Module
   -> BareSpecParsed
+  -> GHC.TypeEnv
   -> TargetDependencies
   -> ( InScopeNonReflectedEnv
      , LogicNameEnv
      , HS.HashSet LocSymbol
      )
-makeLogicEnvs allowTC impMods thisModule spec dependencies =
+makeLogicEnvs allowTC impMods thisModule spec tyEnv dependencies =
     let depsLogicNames =
           map (fmap collectLiftedSpecLogicNames) dependencyPairs
         logicNames =
@@ -714,7 +716,7 @@ makeLogicEnvs allowTC impMods thisModule spec dependencies =
               , HS.toList (opaqueReflects spec)
               , HS.toList (inlines spec)
               , HS.toList (hmeas spec)
-              , if allowTC then map fst (sigs spec) else []
+              , if allowTC then localClassMethods else []
               ]
             ]
           , [ val (msName m) | m <- measures spec ]
@@ -741,6 +743,19 @@ makeLogicEnvs allowTC impMods thisModule spec dependencies =
         { lneLHName = fromListSEnv [ (lhNameToResolvedSymbol n, n) | n <- names ]
         , lneReflected = GHC.mkNameEnv [(rn, n) | n <- names, Just rn <- [maybeReflectedLHName n]]
         }
+
+    localClassMethods :: [Located LHName]
+    localClassMethods = [lhname | (lhname, _) <- sigs spec
+                                , Just name <- [getLHGHCName (val lhname)]
+                                , Just tyThing <- [GHC.lookupTypeEnv tyEnv name]
+                                , isClassMethod tyThing]
+
+    isClassMethod :: GHC.TyThing -> Bool
+    isClassMethod (GHC.AnId tyId) =
+      case GHC.idDetails tyId of
+        GHC.ClassOpId {} -> True
+        _            -> False
+    isClassMethod _ = False
 
 unionAliasEnvs :: forall a. [InScopeEnv a] -> InScopeEnv a
 unionAliasEnvs =

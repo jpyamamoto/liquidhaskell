@@ -574,6 +574,7 @@ processModule LiquidHaskellContext{..} = do
           localVars
           (imp_mods $ tcg_imports tcg)
           (tcg_rdr_env tcg)
+          (tcg_type_env tcg)
           bareSpec0
           dependencies
     result <-
