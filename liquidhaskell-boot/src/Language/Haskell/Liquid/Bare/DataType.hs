@@ -759,10 +759,11 @@ dataConResultTy :: Ghc.DataCon
                 -> SpecType
 dataConResultTy c _ _ (Just t) = F.notracepp ("dataConResultTy-3 : vanilla = " ++ show (Ghc.isVanillaDataCon c) ++ " : ") t
 dataConResultTy c _ t _
-  | Ghc.isVanillaDataCon c     = F.notracepp ("dataConResultTy-1 : " ++ F.showpp c) t
-  | otherwise                  = F.notracepp ("dataConResultTy-2 : " ++ F.showpp c) $ RT.ofType ct
+  | Ghc.isVanillaDataCon c || isClassDataCon   = F.notracepp ("dataConResultTy-1 : " ++ F.showpp c) t
+  | otherwise                                  = F.notracepp ("dataConResultTy-2 : " ++ F.showpp c) $ RT.ofType ct
   where
-    (_,_,_,_,_,ct)             = Ghc.dataConFullSig c
+    isClassDataCon = Ghc.isClassTyCon (Ghc.dataConTyCon c) && isClassType t
+    (_,_,_,_,_,ct) = Ghc.dataConFullSig c
 
 eqSubst :: SpecType -> Maybe (RTyVar, SpecType)
 eqSubst (RApp c [_, _, RVar a _, t] _ _)
