@@ -446,6 +446,23 @@ makeClassAuxTypesOne elab auxEnv (ldcp, inst, methods) = do
         | (v, _) <- Ghc.classOpItems (Ghc.is_cls inst)
         ]
 
+-- | 'substAuxMethods' rewrites applications of the form `classOp ($dfun args...)`
+--   into the concrete method implementation that was selected for that
+--   dictionary: `method args...`
+--
+--   The 'auxEnv' maps each dfun symbol to a map from class operation
+--   (or superclass selector) to the corresponding concrete method symbol,
+--     e.g. "PNat.$fSemigroupPNat" → {"mappend" -> "$cmappend_PNat"}
+--
+--   Examples:
+--     Before: Functor.fmap ($p1Applicative $dFunctor##GHC.Base.Applicative) xs
+--     After:  Functor.fmap ($p1Applicative##GHC.Base.Applicative) xs
+--
+--     Before: ($cmappend $dMonoid##Data.List) x y
+--     After:  ($cmappend##Data.List) x y
+--
+--   The transformation only takes place when both the class operation and the
+--   dfun are present in `auxEnv`.
 substAuxMethods
   :: M.HashMap F.Symbol (M.HashMap F.Symbol F.Symbol)
   -> F.Expr

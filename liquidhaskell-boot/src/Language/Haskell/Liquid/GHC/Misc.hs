@@ -797,6 +797,11 @@ elabRnExpr rdr_expr = do
           failM
         return $ fst $ Ghc.collectArgs $ inlineEvidenceLets e
 
+-- | inlineEvidenceLets will check traverse a Core expression and inline
+--   the definition of let bindings which serve as evidence variables.
+--   This is necessary when using `mkHsDictLet` to add evidence bindings
+--   to an expression, in order to preserve the invariant for the number of
+--   bindings checked in `Elaborate.elaborateReft`.
 inlineEvidenceLets :: CoreExpr -> CoreExpr
 inlineEvidenceLets = go
   where
