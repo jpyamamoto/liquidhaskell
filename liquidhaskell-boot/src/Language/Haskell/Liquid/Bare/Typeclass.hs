@@ -378,7 +378,7 @@ makeClassAuxTypesOne ::
   -> (F.Located DataConP, Ghc.ClsInst, [Ghc.Var])
   -> Ghc.TcRn [(Ghc.Var, LocSpecType)]
 makeClassAuxTypesOne elab auxEnv (ldcp, inst, methods) = do
-  methodSigs <- forM methodsToSpec $ \method -> do
+  forM methodsToSpec $ \method -> do
     let (headlessSig, preft) =
           case L.lookup (mkSymbol method) yts' of
             Nothing ->
@@ -405,9 +405,6 @@ makeClassAuxTypesOne elab auxEnv (ldcp, inst, methods) = do
 
     -- need to make the variable names consistent
     pure (method, F.dummyLoc (F.notracepp ("vars:" ++ F.showpp (F.symbol <$> RT.allTyVars' subbedTy)) subbedTy))
-
-  let scSigs = [(scAux, F.dummyLoc (scAuxSpec scAux)) | scAux <- scAuxs]
-  pure (scSigs ++ methodSigs)
   -- "is" is used as a shorthand for instance, following the convention of the Ghc api
   where
     -- recsel = F.symbol ("lq$recsel" :: String)
@@ -448,19 +445,6 @@ makeClassAuxTypesOne elab auxEnv (ldcp, inst, methods) = do
         [ GM.dropModuleNames (F.symbol v)
         | (v, _) <- Ghc.classOpItems (Ghc.is_cls inst)
         ]
-
-    scAuxs :: [Ghc.Var]
-    scAuxs = filter ((`S.member` scSelKeys) . mkSymbol) methods
-
-    scSelKeys :: S.HashSet F.Symbol
-    scSelKeys =
-      S.fromList
-        [ GM.dropModuleNames (F.symbol v)
-        | v <- Ghc.classSCSelIds (Ghc.is_cls inst)
-        ]
-
-    scAuxSpec :: Ghc.Var -> SpecType
-    scAuxSpec v = classRFInfoType True (RT.ofType (Ghc.varType v) :: SpecType)
 
 substAuxMethods
   :: M.HashMap F.Symbol (M.HashMap F.Symbol F.Symbol)
